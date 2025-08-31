@@ -1,5 +1,5 @@
 from __future__ import annotations
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath
 from PySide6.QtWidgets import QGraphicsDropShadowEffect, QSizePolicy, QWidget
 from ..config import RADIUS

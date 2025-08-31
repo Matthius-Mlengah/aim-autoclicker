@@ -1,10 +1,16 @@
 from __future__ import annotations
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget, QPushButton, QSpacerItem, QSizePolicy
-from .config import RADIUS, TITLEBAR_HEIGHT
+from pathlib import Path
+import sys
+from PySide6.QtCore import Qt, QCoreApplication
+from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget, QStackedWidget
+from .config import RADIUS, TITLEBAR_HEIGHT, ORG_NAME, APP_NAME
 from .ui.chrome import Chrome
 from .ui.titlebar import TitleBar
-from .ui.style import load_stylesheet_pkg
+from .ui.overlay_menu import OverlayMenu
+from .ui.pages import HomePage, SettingsPage
+from .ui.style import load_stylesheet
+from .ui.color_picker import ScreenColorPicker
+from .state.prefs import Prefs
 
 class App(QWidget):
     def __init__(self) -> None:
@@ -24,25 +30,50 @@ class App(QWidget):
         self.titlebar = TitleBar(self)
         inner.addWidget(self.titlebar)
 
-        body = QWidget()
-        body_layout = QVBoxLayout(body)
-        body_layout.setContentsMargins(24, 24, 24, 0)
-        body_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
-
-        self.start_btn = QPushButton("Start")
-        self.start_btn.setObjectName("Primary")
-        self.start_btn.setMinimumSize(200, 56)
-        body_layout.addWidget(self.start_btn, alignment=Qt.AlignHCenter)
-
-        body_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
-        inner.addWidget(body)
+        self.pages = QStackedWidget()
+        self.prefs = Prefs()
+        self.home = HomePage()
+        self.settings = SettingsPage(self.prefs)
+        self.pages.addWidget(self.home)
+        self.pages.addWidget(self.settings)
+        inner.addWidget(self.pages)
         outer.addWidget(self.chrome)
 
-        qss = load_stylesheet_pkg("src.ui", "styles.qss", RADIUS=RADIUS, TITLEBAR_HEIGHT=TITLEBAR_HEIGHT)
+        self.overlay = OverlayMenu(self.chrome)
+        self.overlay.setTopOffset(self.titlebar.height())
+        self.overlay.setActive("home")
+        self.overlay.navigate.connect(self._navigate)
+        self.titlebar.menuRequested.connect(self._toggle_menu)
+
+        self.settings.screen_pick_requested.connect(self._start_screen_pick)
+
+        qss_path = Path(__file__).parent / "ui" / "styles.qss"
+        qss = load_stylesheet(str(qss_path), RADIUS=RADIUS, TITLEBAR_HEIGHT=TITLEBAR_HEIGHT)
         self.setStyleSheet(qss)
 
+    def _toggle_menu(self) -> None:
+        self.overlay.setTopOffset(self.titlebar.height())
+        self.overlay.setVisible(not self.overlay.isVisible())
+        if self.overlay.isVisible():
+            self.overlay.raise_()
+
+    def _navigate(self, route: str) -> None:
+        if route == "home":
+            self.pages.setCurrentWidget(self.home)
+        elif route == "settings":
+            self.pages.setCurrentWidget(self.settings)
+        self.overlay.setActive(route)
+        self.overlay.hide()
+
+    def _start_screen_pick(self) -> None:
+        picker = ScreenColorPicker()
+        picker.selected = lambda hexc: self.settings.apply_external_color(hexc)
+        picker.canceled = lambda: None
+        picker.show()
+
 def run() -> None:
-    import sys
+    QCoreApplication.setOrganizationName(ORG_NAME)
+    QCoreApplication.setApplicationName(APP_NAME)
     app = QApplication(sys.argv)
     w = App()
     w.show()

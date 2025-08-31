@@ -1,12 +1,12 @@
 from __future__ import annotations
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
-from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QSizePolicy, QToolButton, QWidget
-)
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QToolButton, QWidget
 from ..config import TITLEBAR_HEIGHT, CLOSE_WIDTH, BTN_WIDTH
 
 class TitleBar(QWidget):
+    menuRequested = Signal()
+
     def __init__(self, host: QWidget) -> None:
         super().__init__()
         self.host = host
@@ -14,9 +14,10 @@ class TitleBar(QWidget):
         self.setFixedHeight(TITLEBAR_HEIGHT)
 
         row = QHBoxLayout(self)
-        row.setContentsMargins(12, 0, 0, 0)
+        row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(0)
 
+        self.menu_btn = self._btn("☰", "MenuBtn", 56)
         self.title = QLabel("AutoClicker")
         self.title.setObjectName("Title")
 
@@ -24,10 +25,12 @@ class TitleBar(QWidget):
         self.max_btn = self._btn("▢", "MaxBtn", BTN_WIDTH)
         self.close_btn = self._btn("×", "CloseBtn", CLOSE_WIDTH)
 
+        self.menu_btn.clicked.connect(self.menuRequested.emit)
         self.min_btn.clicked.connect(self.host.showMinimized)
         self.max_btn.setEnabled(False)
         self.close_btn.clicked.connect(self.host.close)
 
+        row.addWidget(self.menu_btn)
         row.addWidget(self.title)
         row.addStretch(1)
         row.addWidget(self.min_btn)
